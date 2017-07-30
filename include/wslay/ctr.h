@@ -7,7 +7,8 @@ typedef struct wslay_ctr_ctx
 	sslcContext sslc;
 	wslay_event_context_ptr ctx;
 	int fd;
-
+	int extra_ssl_opt;
+	
 	char *hostname;
 	uint16_t port;
 } wslay_ctr_ctx;
@@ -24,7 +25,7 @@ int wslay_ctr_connect_internal(const char *hostname, uint16_t port);
 void wslay_ctr_make_nonblock(int fd);
 
 Result wslay_ctr_client_init(const char *hostname, uint16_t port, struct wslay_ctr_ctx *ctx, struct wslay_event_callbacks *cbs);
-Result wslay_ctr_client_init_secure(const char *hostname, uint16_t port, struct wslay_ctr_ctx *ctx, struct wslay_event_callbacks *cbs);
+Result wslay_ctr_client_init_secure(const char *hostname, uint16_t port, struct wslay_ctr_ctx *ctx, struct wslay_event_callbacks *cbs, int extra_ssl_opt);
 Result wslay_ctr_client_free(struct wslay_ctr_ctx *ctx);
 Result wslay_ctr_client_run(struct wslay_ctr_ctx *ctx);
 Result wslay_ctr_client_connect(struct wslay_ctr_ctx *ctx);

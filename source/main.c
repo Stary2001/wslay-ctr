@@ -9,6 +9,7 @@
 #include "base64.h"
 #include "sha1.h"
 #include "builtin_rootca_der.h"
+
 void wslay_ctr_setup_callbacks(struct wslay_event_callbacks *cbs)
 {
 	cbs->recv_callback = wslay_ctr_recv;
@@ -28,13 +29,14 @@ Result wslay_ctr_client_init(const char *hostname, uint16_t port, struct wslay_c
 	return 0;
 }
 
-Result wslay_ctr_client_init_secure(const char *hostname, uint16_t port, struct wslay_ctr_ctx *ctx, struct wslay_event_callbacks *cbs)
+Result wslay_ctr_client_init_secure(const char *hostname, uint16_t port, struct wslay_ctr_ctx *ctx, struct wslay_event_callbacks *cbs, int extra_ssl_opt)
 {
 	wslay_ctr_setup_callbacks(cbs);
 	
 	ctx->secure = true;
 	ctx->hostname = strdup(hostname);
 	ctx->port = port;
+	ctx->extra_ssl_opt = extra_ssl_opt;
 	
 	wslay_event_context_client_init(&ctx->ctx, cbs, ctx);
 	return 0;
@@ -74,10 +76,11 @@ Result wslay_ctr_client_connect(struct wslay_ctr_ctx *ctx)
 	}
 
 	ctx->fd = wslay_ctr_connect_internal(ctx->hostname, ctx->port);
+	if(ctx->fd < 0) return -1;
 
 	if(ctx->secure)
 	{
-		r = sslcCreateContext(&ctx->sslc, ctx->fd, SSLCOPT_Default, ctx->hostname);
+		r = sslcCreateContext(&ctx->sslc, ctx->fd, ctx->extra_ssl_opt, ctx->hostname);
 		if(R_FAILED(r))
 		{
 			closesocket(ctx->fd);
@@ -128,7 +131,9 @@ Result wslay_ctr_client_connect(struct wslay_ctr_ctx *ctx)
 	char accept_key_str[64];
 
 	int len = -1;
-	len = wslay_ctr_recv_internal(ctx, (uint8_t*)buf, sizeof(buf), 0);
+	len = wslay_ctr_recv_internal(ctx, (uint8_t*)buf, sizeof(buf)-1, 0);
+	printf("%i\n", len);
+	buf[len] = 0;
 
 	while(len != 0)
 	{
@@ -210,25 +215,37 @@ Result wslay_ctr_client_run(struct wslay_ctr_ctx *ctx)
 	Result r;
 	struct pollfd pfd;
 	pfd.fd = ctx->fd;
+	pfd.events = pfd.revents = 0;
 
-	pfd.events = POLLIN | POLLOUT;
+	if(wslay_event_want_read(ctx->ctx))
+	{
+		pfd.events |= POLLIN;
+	}
+
+	if(wslay_event_want_write(ctx->ctx))
+	{
+	    pfd.events |= POLLOUT;
+	}
+
 	while(wslay_event_want_read(ctx->ctx) || wslay_event_want_write(ctx->ctx))
 	{
 		pfd.revents = 0;
-		r = poll(&pfd, 1, -1); // This polls... well, forever.
+		r = poll(&pfd, 1, 100);
 		if(R_FAILED(r))
 		{
 			return r;
 		}
 
-		if(((pfd.revents & POLLIN) && wslay_event_recv(ctx->ctx) != 0) ||
-		    ((pfd.revents & POLLOUT) && wslay_event_send(ctx->ctx) != 0) ||
-		   	pfd.revents & (POLLERR | POLLHUP | POLLNVAL))
+		if((pfd.revents & POLLIN))
 		{
-			// Something bad happened! Let's stop.
-			r = -1;
-			break;
+			if(wslay_event_recv(ctx->ctx)) return -1;
 		}
+
+		if((pfd.revents & POLLOUT))
+		{
+			if(wslay_event_send(ctx->ctx)) return -1;
+		}
+		
 
 		pfd.events = 0;
 		if(wslay_event_want_read(ctx->ctx))

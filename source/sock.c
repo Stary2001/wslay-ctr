@@ -5,7 +5,6 @@
 #include <errno.h>
 #include <fcntl.h>
 
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -58,9 +57,15 @@ ssize_t wslay_ctr_recv_internal(struct wslay_ctr_ctx *udata, uint8_t *buf, size_
 	if(udata->secure)
 	{
 		ssize_t r = sslcRead(&udata->sslc, buf, len, (flags & MSG_PEEK) ? true : false);
-		if(r == 0xD840B800) // Would block.
+		printf("read %08x %s\n", r, buf);
+		if(r == 0xD840B802) // Would block.
 		{
 			errno = EWOULDBLOCK;
+			r = -1;
+		}
+		else if(r < 0)
+		{
+			printf("recv %08x %s\n", r, buf);
 			r = -1;
 		}
 
@@ -76,12 +81,19 @@ ssize_t wslay_ctr_send_internal(struct wslay_ctr_ctx *udata, const uint8_t *buf,
 {
 	if(udata->secure)
 	{
+		printf("write %s\n", buf);
 		ssize_t r = sslcWrite(&udata->sslc, buf, len);
-		if(r == 0xD840B800) // Would block.
+		printf("write %08x\n", r);
+		if(r == 0xD840B803) // Would block.
 		{
 			errno = EWOULDBLOCK;
 			r = -1;
 		}
+		else if(r < 0)
+		{
+			r = -1;
+		}
+
 		return r;
 	}
 	else
