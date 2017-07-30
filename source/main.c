@@ -49,10 +49,9 @@ Result wslay_ctr_client_free(struct wslay_ctr_ctx *ctx)
 	{
 		sslcDestroyContext(&ctx->sslc);
 	}
-	else
-	{
-		closesocket(ctx->fd);
-	}
+	
+	closesocket(ctx->fd);
+	
 	free(ctx);
 
 	return 0;
