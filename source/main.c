@@ -131,7 +131,6 @@ Result wslay_ctr_client_connect(struct wslay_ctr_ctx *ctx)
 
 	int len = -1;
 	len = wslay_ctr_recv_internal(ctx, (uint8_t*)buf, sizeof(buf)-1, MSG_PEEK);
-	printf("%i\n", len);
 	buf[len] = 0;
 
 	while(len != 0)
@@ -182,7 +181,8 @@ Result wslay_ctr_client_connect(struct wslay_ctr_ctx *ctx)
 			wslay_ctr_recv_internal(ctx, (uint8_t*)buf, len, 0);
 		}
 
-		len = wslay_ctr_recv_internal(ctx, (uint8_t*)buf, sizeof(buf), MSG_PEEK);
+		len = wslay_ctr_recv_internal(ctx, (uint8_t*)buf, sizeof(buf)-1, MSG_PEEK);
+		buf[len] = 0;
 	}
 
 	if(accept_found)
